@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>英语阅读错题溯源智能辅导平台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --primary:#1E4D0F;--accent:#4A7A1E;--light:#EAF5D5;--mid:#9EC85A;
+  --text:#142E06;--muted:#5A7048;--white:#FAFEF5;--border:#BED898;
+  --blue:#1A3E7A;--blueL:#E5EDF8;--amber:#6B3E00;--amberL:#FFF3DC;
+  --red:#7A1414;--redL:#FCEAEA;--purple:#3E1478;--purpleL:#EEE5FA;
+  --teal:#0A4A4A;--tealL:#E0F5F5;
+}
+body{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;background:#F2F8EC;min-height:100vh;font-size:14px;}
+
+/* HEADER */
+#header{background:var(--primary);color:white;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;flex-wrap:wrap;}
+#header .title{flex:1;}
+#header .title h1{font-size:15px;font-weight:600;}
+#header .title p{font-size:10px;opacity:0.7;margin-top:1px;}
+#header .hbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.hbtn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:11px;white-space:nowrap;}
+.hbtn:hover{background:rgba(255,255,255,0.25);}
+.hbtn-gold{background:#B8860B!important;border-color:#B8860B!important;color:white!important;font-weight:600;}
+
+/* MAIN LAYOUT */
+#main{display:grid;grid-template-columns:65fr 35fr;height:calc(100vh - 50px);overflow:hidden;}
+
+/* LEFT PANEL */
+#left{display:flex;flex-direction:column;border-right:2px solid var(--border);background:var(--white);overflow:hidden;}
+#upload-bar{padding:8px 14px;border-bottom:1px solid var(--border);background:#F7FCF2;flex-shrink:0;}
+#upload-bar .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+#upload-bar .status{font-size:11px;color:#999;}
+#upload-bar .status.ok{color:var(--accent);}
+#thumbs{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.thumb-wrap{position:relative;width:52px;}
+.thumb-wrap img{width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid var(--border);display:block;}
+.thumb-wrap .thumb-name{font-size:8px;color:var(--muted);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.thumb-del{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center;}
+
+#article-area{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#article-area .label{font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between;}
+#article-txt{width:100%;height:200px;padding:11px 13px;border-radius:8px;border:1.5px solid var(--border);background:white;font-size:14px;line-height:1.9;resize:none;font-family:'Georgia','Noto Serif SC',serif;color:var(--text);outline:none;}
+#article-txt:focus{border-color:var(--accent);}
+#article-txt.readonly{background:#FAFFF5;}
+#highlight-note{margin-top:5px;padding:5px 10px;background:#FFF9C0;border:1px solid #D4CC50;border-radius:5px;font-size:11px;color:#6A6000;display:none;}
+
+#questions-area{flex:1;overflow:auto;padding:10px 14px;}
+#questions-area .label{font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:8px;}
+.q-card{margin-bottom:12px;padding:11px 13px;border-radius:9px;background:white;border:1px solid var(--border);transition:all 0.2s;}
+.q-card.wrong{background:var(--redL);border-color:#EEB0B0;}
+.q-card.correct{background:#EAFAEA;border-color:#80D080;}
+.q-text{font-size:14px;font-weight:500;margin-bottom:7px;line-height:1.65;}
+.q-text .mark-w{color:var(--red);}
+.q-text .mark-c{color:#2A7A2A;}
+.option{padding:6px 9px;border-radius:5px;font-size:13.5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);transition:all 0.1s;margin-bottom:4px;width:100%;text-align:left;}
+.option:hover:not(.disabled){background:var(--light);border-color:var(--accent);}
+.option.selected{background:var(--light);border-color:var(--accent);color:var(--primary);}
+.option.correct-ans{background:#E0F5E0;border-color:#60C060;color:#1A5A1A;}
+.option.wrong-sel{background:var(--redL);border-color:#D08080;color:var(--red);}
+.option.disabled{cursor:default;}
+.explain-box{margin-top:7px;padding:6px 9px;background:#F0F8FF;border-radius:5px;font-size:11.5px;color:var(--blue);border-left:3px solid #80B0E0;}
+
+#bottom-bar{padding:9px 14px;border-top:1px solid var(--border);background:#F5FCF0;display:flex;gap:7px;flex-shrink:0;flex-wrap:wrap;}
+.btn{padding:8px 14px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all 0.15s;}
+.btn:disabled{background:#ccc!important;cursor:not-allowed;}
+.btn-primary{background:var(--primary);color:white;}
+.btn-accent{background:var(--accent);color:white;}
+.btn-outline{background:white;border:1px solid var(--border)!important;color:var(--muted);}
+.btn-purple{background:#4A2D8C;color:white;}
+.btn-gold{background:#B8860B;color:white;}
+.btn-light{background:var(--light);color:var(--primary);}
+.score-pill{flex:1;padding:7px 9px;border-radius:7px;background:var(--light);font-size:12.5px;color:var(--primary);display:flex;gap:10px;align-items:center;}
+
+/* RIGHT PANEL */
+#right{display:flex;flex-direction:column;background:#EEF6E5;overflow:hidden;}
+#chat-header{padding:9px 12px;border-bottom:1px solid var(--border);background:white;display:flex;align-items:center;gap:7px;flex-shrink:0;}
+#chat-header .avatar{width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+#chat-header .info{flex:1;min-width:0;}
+#chat-header .info .name{font-size:12.5px;font-weight:600;color:var(--text);}
+#chat-header .info .status{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#progress-dots{display:flex;gap:3px;}
+.pdot{width:19px;height:19px;border-radius:50%;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;}
+.pdot.done{background:var(--light);color:var(--accent);}
+.pdot.active{background:var(--accent);color:white;border:2px solid var(--primary);}
+.pdot.todo{background:#ddd;color:#aaa;}
+
+#chat-messages{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;}
+#chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:9px;color:var(--muted);text-align:center;}
+#chat-empty .icon{font-size:36px;}
+#chat-empty p{font-size:12px;line-height:1.9;}
+#chat-empty small{font-size:10.5px;color:#aaa;line-height:1.7;}
+
+.msg-row{display:flex;gap:5px;align-items:flex-start;}
+.msg-row.user{justify-content:flex-end;}
+.msg-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;}
+.msg-avatar.ai{background:var(--primary);}
+.msg-avatar.user{background:var(--mid);}
+.msg-bubble{max-width:88%;padding:8px 11px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;}
+.msg-bubble.ai-bubble{border-radius:3px 13px 13px 13px;}
+.msg-bubble.user-bubble{border-radius:13px 3px 13px 13px;background:var(--primary);color:white;}
+.msg-type-label{font-size:8.5px;font-weight:600;opacity:0.6;margin-bottom:2px;letter-spacing:0.5px;}
+.bubble-guide{background:var(--blueL);border:1px solid #AECAF0;color:var(--blue);}
+.bubble-encourage{background:#E5F5E5;border:1px solid #80C880;color:#1A5A1A;}
+.bubble-word{background:var(--purpleL);border:1px solid #C0A0F0;color:var(--purple);}
+.bubble-grammar{background:var(--amberL);border:1px solid #F0BE60;color:var(--amber);}
+.bubble-quiz{background:var(--light);border:1px solid var(--border);color:var(--primary);}
+.quiz-options{display:flex;flex-direction:column;gap:5px;margin-top:7px;}
+.quiz-opt-btn{padding:6px 9px;border-radius:6px;border:1px solid var(--accent);background:white;color:var(--primary);cursor:pointer;text-align:left;font-size:12px;font-family:inherit;transition:background 0.1s;}
+.quiz-opt-btn:hover{background:var(--light);}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:8px 11px;border-radius:3px 13px 13px 13px;background:var(--blueL);border:1px solid #AECAF0;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--blue);animation:pulse 1s infinite;}
+.dot:nth-child(2){animation-delay:0.2s;}
+.dot:nth-child(3){animation-delay:0.4s;}
+@keyframes pulse{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1)}}
+
+#chat-input-row{padding:9px 11px;border-top:1px solid var(--border);background:white;display:none;gap:5px;flex-shrink:0;}
+#chat-input{flex:1;padding:7px 11px;border-radius:17px;border:1px solid var(--border);font-size:12.5px;outline:none;font-family:inherit;}
+#chat-send{padding:7px 13px;border-radius:17px;border:none;background:var(--accent);color:white;cursor:pointer;font-size:12.5px;font-family:inherit;}
+#chat-send:disabled{background:#ccc;cursor:not-allowed;}
+
+#suggestions-panel{padding:10px 12px;border-top:2px solid var(--border);background:white;max-height:160px;overflow-y:auto;flex-shrink:0;display:none;}
+#suggestions-panel .label{font-size:11px;font-weight:600;color:var(--primary);margin-bottom:7px;}
+.sugg-item{padding:6px 9px;border-radius:6px;font-size:11.5px;display:flex;gap:6px;margin-bottom:5px;}
+
+/* MODAL */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:none;align-items:center;justify-content:center;}
+#modal-overlay.open{display:flex;}
+#modal-box{background:white;border-radius:12px;padding:22px;max-width:620px;width:92%;max-height:80vh;overflow:auto;}
+#modal-box h2{font-size:15px;font-weight:600;color:var(--primary);margin-bottom:14px;}
+.modal-close{float:right;background:none;border:none;font-size:17px;cursor:pointer;color:#999;margin-top:-2px;}
+.book-section{margin-bottom:14px;}
+.book-section h3{font-size:12px;font-weight:600;margin-bottom:7px;}
+.book-section.words h3{color:var(--purple);}
+.book-section.sents h3{color:var(--amber);}
+.word-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.word-chip{background:var(--purpleL);border-radius:20px;padding:4px 11px;font-size:12.5px;color:var(--purple);border:1px solid #C0A0F0;}
+.sent-item{background:var(--amberL);border-radius:7px;padding:9px 11px;font-size:12.5px;font-style:italic;margin-bottom:5px;color:var(--amber);border-left:3px solid #D0A040;}
+
+/* TABLET responsive */
+@media (max-width: 768px){
+  #main{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto;overflow:visible;}
+  #left{height:auto;overflow:visible;border-right:none;border-bottom:2px solid var(--border);}
+  #right{height:60vh;min-height:400px;}
+  #article-txt{height:160px;}
+  body{font-size:15px;}
+  .btn{font-size:12px;padding:9px 12px;}
+  .option{font-size:14px;padding:8px 10px;}
+  .msg-bubble{font-size:13px;}
+}
+@media (max-width:480px){
+  #header h1{font-size:13px;}
+  #article-txt{height:130px;}
+  #main{grid-template-columns:1fr;}
+}
+
+/* SCROLLBARS */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <span style="font-size:19px">📚</span>
+  <div class="title">
+    <h1>英语阅读错题溯源智能辅导平台</h1>
+    <p>小托福专项 · AI启发式引导 · 精准溯源 · 学情报告</p>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn" id="btn-restart" onclick="resetAll()" style="display:none">← 重新开始</button>
+    <button class="hbtn" id="btn-book" onclick="openBook()">📓 错题本</button>
+    <button class="hbtn hbtn-gold" id="btn-report" onclick="generateReport()" style="display:none">📄 下载学情报告</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT -->
+  <div id="left">
+
+    <!-- UPLOAD BAR -->
+    <div id="upload-bar">
+      <div class="row">
+        <button class="btn btn-accent" style="font-size:11.5px;padding:5px 12px;" onclick="document.getElementById('file-input').click()">📎 上传图片 / PDF</button>
+        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple style="display:none" onchange="handleFileSelect(event)"/>
+        <button class="btn btn-primary" id="btn-ocr" style="font-size:11.5px;padding:5px 12px;display:none" onclick="runOCR()">🔍 AI识别</button>
+        <span class="status" id="upload-status">支持多张图片（文章一张 + 题目一张）</span>
+      </div>
+      <div id="thumbs"></div>
+    </div>
+
+    <!-- ARTICLE -->
+    <div id="article-area">
+      <div class="label">
+        <span>📄 阅读原文</span>
+        <span id="highlight-info" style="font-size:10px;color:var(--accent);display:none"></span>
+      </div>
+      <textarea id="article-txt" placeholder="在此粘贴英语阅读文章，或上传图片/PDF自动识别..." onmouseup="handleHighlight()">The Arctic fox (Vulpes lagopus) is a small fox native to the Arctic regions of the Northern Hemisphere. It is well adapted to living in cold environments. Its thick, warm fur changes color with the seasons — white in winter and brown or gray in summer — which helps it blend into its surroundings.
+
+Arctic foxes are omnivores. They eat small mammals, birds, eggs, insects, berries, and carrion. They are known to follow polar bears to scavenge leftover food. During summer, they store food in their dens to prepare for the long, harsh winter.
+
+Despite their resilience, Arctic fox populations face challenges. Climate change is causing their habitat to shrink as temperatures rise. The red fox, which thrives in warmer conditions, is moving northward and competing with Arctic foxes for food and territory. Conservation efforts are underway to monitor and protect these remarkable animals.</textarea>
+      <div id="highlight-note"></div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div id="questions-area">
+      <div class="label" id="q-label">📝 阅读题目</div>
+      <div id="q-list"></div>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div id="bottom-bar">
+      <button class="btn btn-outline" id="bb-clear" onclick="clearAnswers()">清空</button>
+      <button class="btn btn-accent" id="bb-submit" onclick="submitAnswers()" style="flex:3" disabled>提交作答 →</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right">
+    <div id="chat-header">
+      <div class="avatar">🤖</div>
+      <div class="info">
+        <div class="name">AI 辅导助手</div>
+        <div class="status" id="chat-status">等待作答</div>
+      </div>
+      <div id="progress-dots"></div>
+    </div>
+    <div id="chat-messages">
+      <div id="chat-empty">
+        <div class="icon">📖</div>
+        <p>完成左侧题目后<br>AI将针对每道错题<br>启动个性化溯源辅导</p>
+        <small>完成后可生成<br>学情分析PDF报告<br>发送给老师查看</small>
+      </div>
+    </div>
+    <div id="chat-input-row">
+      <input type="text" id="chat-input" placeholder="输入回答... (Enter发送)" onkeydown="if(event.key==='Enter')sendMessage()"/>
+      <button id="chat-send" onclick="sendMessage()">发送</button>
+    </div>
+    <div id="suggestions-panel">
+      <div class="label">🎯 专属学习建议</div>
+      <div id="suggestions-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MISTAKE BOOK MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeBook()">
+  <div id="modal-box">
+    <button class="modal-close" onclick="closeBook()">✕</button>
+    <h2>📓 我的错题本</h2>
+    <div id="book-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+const GEMINI_API_KEY = "AIzaSyDfMI6qGW287EvCoVnZliplygmZ66TglCE";
+
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let state = {
+  questions: [
+    {id:1,question:"What is the main reason the Arctic fox's fur changes color?",options:["A. To attract mates during mating season","B. To blend into its surroundings in different seasons","C. To regulate its body temperature","D. To warn predators to stay away"],correct:"B"},
+    {id:2,question:"According to the passage, why do Arctic foxes follow polar bears?",options:["A. For protection from predators","B. To learn hunting techniques","C. To scavenge leftover food","D. To find warmer shelter"],correct:"C"},
+    {id:3,question:"What can be inferred about the relationship between red foxes and Arctic foxes?",options:["A. They cooperate to find food together","B. Red foxes help Arctic foxes adapt to climate change","C. Red foxes pose a competitive threat to Arctic foxes","D. They have no significant interaction"],correct:"C"}
+  ],
+  userAnswers: {},
+  submitted: false,
+  wrongQs: [],
+  wrongIdx: 0,
+  phase: "input", // input | result | tutoring | done | review_quiz
+  tutorPhase: "quick_quiz",
+  diagnosis: null,
+  allDiagnoses: {},
+  suggestions: [],
+  mistakeBook: {words:[], sentences:[]},
+  savedToBook: false,
+  uploadedImages: [],
+  reviewQuiz: [],
+  reviewAnswers: {},
+  reviewSubmitted: false,
+  loading: false,
+  selectedText: "",
+  chatHistory: [], // for AI context
+};
+
+const QUICK_QUIZ_OPTIONS = [
+  {key:"A", label:"找不到题干关键词，不知道去哪段找答案"},
+  {key:"B", label:"找到了对应段落，但句子读不懂"},
+  {key:"C", label:"句子读懂了，但看不出主旨 / 逻辑 / 作者意图"},
+  {key:"D", label:"原文读懂了，但选项说法和原文不一样，看不出同义替换"},
+];
+
+// ═══════════════════════════════════════════════════
+// GEMINI API
+// ═══════════════════════════════════════════════════
+// Flash for text-only, Pro for image OCR
+const GEMINI_URL_FLASH = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL_PRO   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+
+async function callGemini(prompt, imageDataList) {
+  const parts = [];
+  const hasImages = imageDataList && imageDataList.length > 0;
+  if (hasImages) {
+    imageDataList.forEach(img => {
+      // Gemini vision format: inlineData (camelCase)
+      parts.push({ inlineData: { mimeType: img.mediaType, data: img.base64 } });
+    });
+  }
+  parts.push({ text: prompt });
+  const url = hasImages ? GEMINI_URL_PRO : GEMINI_URL_FLASH;
+  const maxTokens = hasImages ? 2000 : 1200;
+  const body = {
+    contents: [{ parts }],
+    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 }
+  };
+  const res = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  const d = await res.json();
+  if (d.error) throw new Error(`Gemini错误: ${d.error.message}`);
+  const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini返回内容为空");
+  return text;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER QUESTIONS
+// ═══════════════════════════════════════════════════
+function renderQuestions() {
+  const list = document.getElementById("q-list");
+  const label = document.getElementById("q-label");
+  if (state.phase === "review_quiz") {
+    label.textContent = "🧪 专项复习检测";
+    list.innerHTML = state.reviewQuiz.map((q,qi) => renderReviewQ(q,qi)).join("");
+    return;
+  }
+  label.textContent = "📝 阅读题目";
+  list.innerHTML = state.questions.map((q,qi) => renderQ(q,qi)).join("");
+}
+
+function renderQ(q, qi) {
+  const wrong = state.submitted && state.wrongQs.find(w=>w.id===q.id);
+  const right = state.submitted && !wrong;
+  let cardClass = wrong?"wrong":right?"correct":"";
+  const opts = q.options.map(opt => {
+    const k = opt[0];
+    const isSel = state.userAnswers[q.id]===k;
+    const isCorr = q.correct===k;
+    let cls = "option";
+    if (state.submitted) {
+      if (isCorr) cls += " correct-ans disabled";
+      else if (isSel) cls += " wrong-sel disabled";
+      else cls += " disabled";
+    } else {
+      if (isSel) cls += " selected";
+    }
+    const onclick = state.submitted ? "" : `onclick="selectAnswer(${q.id},'${k}')"`;
+    return `<button class="${cls}" ${onclick}>${esc(opt)}</button>`;
+  }).join("");
+  const prefix = wrong?`<span class="mark-w">✗ </span>`:right?`<span class="mark-c">✓ </span>`:"";
+  return `<div class="q-card ${cardClass}">
+    <div class="q-text">${prefix}${qi+1}. ${esc(q.question)}</div>
+    <div>${opts}</div>
+  </div>`;
+}
+
+function renderReviewQ(q, qi) {
+  const chosen = state.reviewAnswers[q.id];
+  const isRight = state.reviewSubmitted && chosen===q.correct;
+  const isWrong = state.reviewSubmitted && chosen && chosen!==q.correct;
+  let cardClass = isRight?"correct":isWrong?"wrong":"";
+  const opts = q.options.map(opt => {
+    const k = opt[0];
+    const isSel = chosen===k;
+    const isCorr = q.correct===k;
+    let cls = "option";
+    if (state.reviewSubmitted) {
+      if (isCorr) cls += " correct-ans disabled";
+      else if (isSel) cls += " wrong-sel disabled";
+      else cls += " disabled";
+    } else {
+      if (isSel) cls += " selected";
+    }
+    const onclick = state.reviewSubmitted ? "" : `onclick="selectReview(${q.id},'${k}')"`;
+    return `<button class="${cls}" ${onclick}>${esc(opt)}</button>`;
+  }).join("");
+  const explain = state.reviewSubmitted && q.explanation ? `<div class="explain-box">💡 ${esc(q.explanation)}</div>` : "";
+  return `<div class="q-card ${cardClass}">
+    <div class="q-text">${qi+1}. ${esc(q.question)}</div>
+    <div>${opts}</div>
+    ${explain}
+  </div>`;
+}
+
+function selectAnswer(qId, key) {
+  if (state.submitted) return;
+  state.userAnswers[qId] = key;
+  renderQuestions();
+  updateBottomBar();
+}
+
+function selectReview(qId, key) {
+  if (state.reviewSubmitted) return;
+  state.reviewAnswers[qId] = key;
+  renderQuestions();
+  updateBottomBar();
+}
+
+function clearAnswers() {
+  state.userAnswers = {};
+  renderQuestions();
+  updateBottomBar();
+}
+
+// ═══════════════════════════════════════════════════
+// BOTTOM BAR
+// ═══════════════════════════════════════════════════
+function updateBottomBar() {
+  const bar = document.getElementById("bottom-bar");
+  bar.innerHTML = "";
+  const p = state.phase;
+
+  if (p==="input") {
+    const answered = Object.keys(state.userAnswers).length;
+    const total = state.questions.length;
+    bar.innerHTML = `
+      <button class="btn btn-outline" onclick="clearAnswers()">清空</button>
+      <button class="btn btn-accent" style="flex:3" onclick="submitAnswers()" ${answered<total?"disabled":""}>提交作答 →</button>`;
+  } else if (p==="result") {
+    const c = state.questions.length - state.wrongQs.length;
+    bar.innerHTML = `
+      <div class="score-pill"><span style="color:#2A7A2A">✓ ${c}</span><span style="color:var(--red)">✗ ${state.wrongQs.length}</span></div>
+      ${state.wrongQs.length>0?`<button class="btn btn-primary" style="flex:3" onclick="startTutoring()">🔍 开始错题溯源</button>`:""}`;
+  } else if (p==="tutoring") {
+    bar.innerHTML = `<button class="btn btn-accent" style="flex:1" onclick="markCorrected()" ${state.loading?"disabled":""}>✅ 这题订正好了，下一题</button>`;
+  } else if (p==="done") {
+    bar.innerHTML = `
+      ${state.savedToBook
+        ? `<div class="btn btn-light" style="flex:1;text-align:center">✅ 已存入错题本</div>`
+        : `<button class="btn btn-primary" style="flex:1" onclick="saveToBook()">📓 存入错题本</button>`}
+      <button class="btn btn-purple" style="flex:1" onclick="generateReviewQuiz()" ${state.loading?"disabled":""}>🧪 生成复习检测</button>
+      <button class="btn btn-gold" style="flex:1" onclick="generateReport()" ${state.loading?"disabled":""}>📄 下载报告</button>`;
+  } else if (p==="review_quiz") {
+    const answered = Object.keys(state.reviewAnswers).length;
+    const score = state.reviewQuiz.filter(q=>state.reviewAnswers[q.id]===q.correct).length;
+    bar.innerHTML = state.reviewSubmitted
+      ? `<div class="score-pill" style="flex:2">复习得分：${score} / ${state.reviewQuiz.length} ✨</div>
+         <button class="btn btn-gold" style="flex:2" onclick="generateReport()">📄 含检测结果下载报告</button>`
+      : `<button class="btn btn-purple" style="flex:2" onclick="submitReview()" ${answered<state.reviewQuiz.length?"disabled":""}>提交检测</button>
+         <button class="btn btn-gold" style="flex:2" onclick="generateReport()">📄 下载报告</button>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// FILE UPLOAD & OCR
+// ═══════════════════════════════════════════════════
+function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  let loaded = 0;
+  files.forEach(file => {
+    const ext = file.name.split(".").pop().toLowerCase();
+    const mediaType = ext==="pdf"?"application/pdf":`image/${ext==="jpg"?"jpeg":ext}`;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const base64 = ev.target.result.split(",")[1];
+      const preview = ev.target.result;
+      state.uploadedImages.push({name:file.name, base64, mediaType, preview});
+      loaded++;
+      if (loaded===files.length) renderThumbs();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value="";
+}
+
+function renderThumbs() {
+  const thumbs = document.getElementById("thumbs");
+  const ocrBtn = document.getElementById("btn-ocr");
+  const status = document.getElementById("upload-status");
+  if (state.uploadedImages.length===0) {
+    thumbs.innerHTML=""; ocrBtn.style.display="none";
+    status.textContent="支持多张图片（文章一张 + 题目一张）"; status.className="status";
+    return;
+  }
+  ocrBtn.style.display="";
+  status.textContent=`已选择 ${state.uploadedImages.length} 张，点击 AI识别 开始解析`;
+  thumbs.innerHTML = state.uploadedImages.map((img,i)=>`
+    <div class="thumb-wrap">
+      <img src="${img.preview}" alt="${img.name}"/>
+      <button class="thumb-del" onclick="removeThumb(${i})">✕</button>
+      <div class="thumb-name">${img.name}</div>
+    </div>`).join("");
+}
+
+function removeThumb(i) {
+  state.uploadedImages.splice(i,1);
+  renderThumbs();
+}
+
+async function runOCR() {
+  if (!state.uploadedImages.length) return;
+  setStatus("AI正在识别图片，请稍候...");
+  state.loading = true;
+  try {
+    const prompt = `You are an OCR assistant. Please carefully read all ${state.uploadedImages.length} image(s) provided. One image may contain the reading passage, another may contain the questions and answer choices. Extract ALL text completely and accurately.
+
+Return ONLY a valid JSON object in this exact format (no markdown, no explanation):
+{"article":"full passage text here","questions":[{"id":1,"question":"question text","options":["A. option text","B. option text","C. option text","D. option text"],"correct":""}]}
+
+Rules:
+- Extract every word of the article, do not summarize
+- For questions, include the full question text and all 4 options exactly as written
+- If answer key is not shown in the image, leave correct as empty string ""
+- Return ONLY the JSON, nothing else`;
+
+    const reply = await callGemini(prompt, state.uploadedImages);
+    const clean = reply.replace(/```json|```/g,"").replace(/^[^{]*({)/,"$1").replace(/(})[^}]*$/,"$1").trim();
+    const parsed = JSON.parse(clean);
+    if (parsed.article && parsed.article.length > 10) {
+      document.getElementById("article-txt").value = parsed.article;
+    } else {
+      throw new Error("识别到的文章内容为空，请检查图片");
+    }
+    if (parsed.questions?.length > 0) {
+      state.questions = parsed.questions;
+      renderQuestions();
+    }
+    setStatus(`✅ 识别成功！原文 + ${parsed.questions?.length||0} 道题已导入`, true);
+    state.uploadedImages = [];
+    renderThumbs();
+  } catch(e) {
+    console.error("OCR error:", e);
+    setStatus(`识别失败：${e.message}。请确保图片清晰，或手动粘贴内容`);
+  }
+  state.loading = false;
+}
+
+function setStatus(txt, ok) {
+  const el = document.getElementById("upload-status");
+  el.textContent = txt;
+  el.className = ok?"status ok":"status";
+}
+
+// ═══════════════════════════════════════════════════
+// SUBMIT & RESULT
+// ═══════════════════════════════════════════════════
+function submitAnswers() {
+  state.wrongQs = state.questions.filter(q=>state.userAnswers[q.id]!==q.correct);
+  state.submitted = true;
+  state.phase = "result";
+  document.getElementById("article-txt").classList.add("readonly");
+  document.getElementById("article-txt").readOnly = true;
+  renderQuestions();
+  updateBottomBar();
+  setChatStatus(`${state.wrongQs.length}道错题待分析`);
+  document.getElementById("btn-restart").style.display="";
+}
+
+// ═══════════════════════════════════════════════════
+// TUTORING
+// ═══════════════════════════════════════════════════
+function startTutoring() {
+  state.wrongIdx=0; state.tutorPhase="quick_quiz"; state.chatHistory=[];
+  state.suggestions=[]; state.phase="tutoring"; state.diagnosis=null;
+  clearChat();
+  updateBottomBar();
+  renderProgress();
+  document.getElementById("chat-input-row").style.display="flex";
+  const q = state.wrongQs[0];
+  addMsg("ai","guide",`我们来仔细研究第 ${q.id} 题 📖\n\n题目：${q.question}\n\n你选了 ${state.userAnswers[q.id]||"?"} ，正确答案是 ${q.correct}。\n\n先别急～ 我们一起找找是哪个环节出了问题！`);
+  addQuizMsg("这道题你出错，最接近的原因是？", QUICK_QUIZ_OPTIONS, "quick_quiz");
+  setChatStatus(`第${q.id}题辅导中`);
+}
+
+async function handleChoice(choice) {
+  const q = state.wrongQs[state.wrongIdx];
+  const labels={A:"找不到关键词",B:"找到段落但读不懂句子",C:"句子读懂了但看不出逻辑主旨",D:"被同义替换迷惑"};
+  addMsg("user",null,`我选择：${labels[choice]}`);
+  state.diagnosis=choice;
+  state.allDiagnoses[q.id]=choice;
+  state.loading=true; updateBottomBar();
+  try {
+    const article = document.getElementById("article-txt").value;
+    let prompt="";
+    if (choice==="A") {
+      state.tutorPhase="branch_A";
+      prompt=`原文：\n${article}\n\n错题：${q.question}\n\n学生找不到关键词。引导：1）从题干挑一个词举例什么叫"关键词"，2）让学生找其余关键词。禁止透露答案或段落位置。语气亲切，80字内。`;
+      const r = await callGemini(prompt);
+      addMsg("ai","guide",r);
+    } else if (choice==="B") {
+      state.tutorPhase="branch_B";
+      addQuizMsg("找到段落了，但读不懂句子——你觉得卡在哪里？",[{key:"B1",label:"句子里有生词不认识"},{key:"B2",label:"单词都认识，但长难句结构看不懂"}],"branch_B");
+    } else if (choice==="C") {
+      state.tutorPhase="branch_C";
+      prompt=`原文：\n${article}\n\n错题：${q.question}\n\n学生句子读懂了但看不出主旨/逻辑。请：1）问学生这道题在考什么类型（主旨/推断/细节？），2）引导想"出题人考查的角度"。禁止给答案，80字内。`;
+      const r = await callGemini(prompt);
+      addMsg("ai","guide",r);
+    } else {
+      state.tutorPhase="branch_D";
+      prompt=`原文：\n${article}\n\n错题：${q.question}\n\n学生被同义替换迷惑——这是小托福高频陷阱！请：1）解释什么是同义替换，2）引导学生把每个选项和原文逐一比对，问"哪个选项意思和原文最接近就算说法不同"。禁止直接指出答案，90字内。`;
+      const r = await callGemini(prompt);
+      addMsg("ai","guide",r);
+    }
+  } catch { addMsg("ai","guide","网络问题，请重试～"); }
+  state.loading=false; updateBottomBar();
+}
+
+async function handleBranchB(sub) {
+  const q = state.wrongQs[state.wrongIdx];
+  addMsg("user",null, sub==="B1"?"句子里有生词不认识":"长难句语法结构看不懂");
+  state.loading=true; updateBottomBar();
+  if (sub==="B1") {
+    state.tutorPhase="branch_B1";
+    addMsg("ai","guide","好的！把你不认识的单词发给我吧～\n一次发一个或几个都行，我来帮你！💪");
+  } else {
+    state.tutorPhase="branch_B2";
+    const article = document.getElementById("article-txt").value;
+    const r = await callGemini(`原文：\n${article}\n\n错题：${q.question}\n\n学生遇到长难句。先让学生告诉你是哪个句子，然后问：这个句子的主语是什么？只问这一个问题，80字内。`);
+    addMsg("ai","grammar",r);
+  }
+  state.loading=false; updateBottomBar();
+}
+
+async function sendMessage() {
+  const input = document.getElementById("chat-input");
+  const msg = input.value.trim();
+  if (!msg || state.loading) return;
+  input.value="";
+  const q = state.wrongQs[state.wrongIdx];
+  const article = document.getElementById("article-txt").value;
+  addMsg("user",null,msg);
+  state.chatHistory.push({role:"user",content:msg});
+  state.loading=true; updateBottomBar();
+  const ctx = state.chatHistory.map(m=>`${m.role==="user"?"学生":"老师"}：${m.content}`).join("\n");
+  try {
+    let prompt="";
+    let msgType="guide";
+    const tp = state.tutorPhase;
+    if (tp==="branch_A") {
+      prompt=`原文：${article}\n错题：${q.question} 答案：${q.correct}\n对话：${ctx}\n\n判断：①关键词找对→鼓励并引导原文定位；②不准→温柔提示重找；③找到正确段落→引导选答案。禁止说出是哪个选项或第几段。80字内。`;
+    } else if (tp==="branch_B1") {
+      msgType="word";
+      prompt=`学生询问的生词：${msg}\n原文：${article}\n\n严格按以下格式输出：\n📌 单词：${msg}\n🔊 音标：/音标/\n📖 词性：词性\n💡 释义：中文意思\n⭐ 级别：【小托福必背】或【了解即可】\n✏️ 例句1：英文句\n✏️ 例句2：英文句\n\n最后一句引导结合词义重理解原句。`;
+      state.mistakeBook.words = state.mistakeBook.words.filter(w=>w.word!==msg);
+      state.mistakeBook.words.push({word:msg, questionId:q.id, timestamp:new Date().toLocaleDateString()});
+    } else if (tp==="branch_B2") {
+      msgType="grammar";
+      prompt=`原文：${article}\n错题：${q.question}\n对话：${ctx}\n学生：${msg}\n\n继续拆解：主语对→引导找谓语；谓语对→引导识别从句；全搞清→引导回答题目。每次只问一步，80字内。`;
+    } else if (tp==="branch_C") {
+      prompt=`原文：${article}\n错题：${q.question} 答案：${q.correct}\n对话：${ctx}\n学生：${msg}\n\n引导识别题型和出题意图，帮看清逻辑陷阱，禁止给答案。80字内。`;
+    } else if (tp==="branch_D") {
+      prompt=`原文：${article}\n错题：${q.question} 答案：${q.correct}\n对话：${ctx}\n学生：${msg}\n\n引导比对选项与原文同义关系。禁止给答案。90字内。`;
+    } else {
+      prompt=`原文：${article}\n错题：${q.question}\n对话：${ctx}\n学生：${msg}\n\n给合适引导性回复，80字内。`;
+    }
+    const r = await callGemini(prompt);
+    addMsg("ai",msgType,r);
+    state.chatHistory.push({role:"ai",content:r});
+  } catch { addMsg("ai","guide","网络有点问题，请重试～"); }
+  state.loading=false; updateBottomBar();
+}
+
+async function markCorrected() {
+  state.loading=true; updateBottomBar();
+  const q = state.wrongQs[state.wrongIdx];
+  const diagMap={A:"找不到关键词定位",B:"句子理解困难",C:"主旨/逻辑理解偏差",D:"同义替换识别不足"};
+  try {
+    const r = await callGemini(`错题：${q.question}\n出错原因：${diagMap[state.diagnosis]}\n\n给一条学习建议，25字内，针对小托福。`);
+    state.suggestions.push({questionId:q.id, diagnosis:state.diagnosis, suggestion:r.trim()});
+    renderSuggestions();
+    if (state.diagnosis==="B"||state.tutorPhase==="branch_B2") {
+      const article = document.getElementById("article-txt").value;
+      const sents = article.split(/[.!?]/).filter(s=>s.trim().length>40);
+      if (sents.length) state.mistakeBook.sentences.push({sentence:sents[0].trim(), questionId:q.id});
+    }
+  } catch {}
+
+  if (state.wrongIdx < state.wrongQs.length-1) {
+    state.wrongIdx++;
+    state.tutorPhase="quick_quiz"; state.diagnosis=null; state.chatHistory=[];
+    const next = state.wrongQs[state.wrongIdx];
+    clearChat();
+    addMsg("ai","encourage",`第 ${q.id} 题搞定啦 🎉 继续加油！\n\n下一题：第 ${next.id} 题\n${next.question}`);
+    addQuizMsg("这道题出错的原因是？", QUICK_QUIZ_OPTIONS, "quick_quiz");
+    setChatStatus(`第${next.id}题辅导中`);
+    renderProgress();
+  } else {
+    addMsg("ai","encourage","🎊 全部错题订正完成！\n\n你今天非常棒，每道题都认真分析了出错原因。\n\n现在可以生成复习检测题，或下载学情分析报告！");
+    state.phase="done";
+    setChatStatus("辅导完成 🎉 可下载报告");
+    document.getElementById("btn-report").style.display="";
+    document.getElementById("chat-input-row").style.display="none";
+  }
+  state.loading=false; updateBottomBar();
+}
+
+// ═══════════════════════════════════════════════════
+// REVIEW QUIZ
+// ═══════════════════════════════════════════════════
+async function generateReviewQuiz() {
+  state.loading=true; updateBottomBar();
+  const wordList = state.mistakeBook.words.map(w=>w.word).join(", ");
+  const sentList = state.mistakeBook.sentences.map(s=>s.sentence).join(" | ");
+  const article = document.getElementById("article-txt").value;
+  try {
+    const r = await callGemini(`根据以下学习记录出5道复习检测题：\n生词：${wordList||"无"}\n难句：${sentList||"无"}\n原文：${article}\n\n生成JSON数组，5道题，混合词汇题和句子理解题，难度适合小托福：\n[{"id":1,"type":"vocab","question":"...","options":["A...","B...","C...","D..."],"correct":"A","explanation":"解析"},...]\n只返回JSON数组，不要任何其他文字或markdown代码块。`);
+    const clean = r.replace(/```json|```/g,"").trim();
+    state.reviewQuiz = JSON.parse(clean);
+    state.phase="review_quiz";
+    state.reviewAnswers={}; state.reviewSubmitted=false;
+    renderQuestions(); updateBottomBar();
+    setChatStatus("复习检测中");
+  } catch(e) { alert("生成检测题失败，请重试"); }
+  state.loading=false; updateBottomBar();
+}
+
+function submitReview() {
+  state.reviewSubmitted=true;
+  renderQuestions(); updateBottomBar();
+}
+
+// ═══════════════════════════════════════════════════
+// MISC
+// ═══════════════════════════════════════════════════
+function saveToBook() { state.savedToBook=true; updateBottomBar(); }
+
+function handleHighlight() {
+  const sel = window.getSelection()?.toString().trim();
+  if (sel&&sel.length>2) {
+    state.selectedText=sel;
+    const info = document.getElementById("highlight-info");
+    info.textContent=`✏️ 已标记：${sel.slice(0,20)}${sel.length>20?"…":""}`;
+    info.style.display="";
+  }
+}
+
+function resetAll() {
+  state={...state, userAnswers:{}, submitted:false, wrongQs:[], wrongIdx:0,
+    phase:"input", tutorPhase:"quick_quiz", diagnosis:null, allDiagnoses:{},
+    suggestions:[], mistakeBook:{words:[],sentences:[]}, savedToBook:false,
+    uploadedImages:[], reviewQuiz:[], reviewAnswers:{}, reviewSubmitted:false,
+    loading:false, selectedText:"", chatHistory:[]};
+  document.getElementById("article-txt").readOnly=false;
+  document.getElementById("article-txt").classList.remove("readonly");
+  document.getElementById("btn-restart").style.display="none";
+  document.getElementById("btn-report").style.display="none";
+  document.getElementById("chat-input-row").style.display="none";
+  document.getElementById("suggestions-panel").style.display="none";
+  document.getElementById("suggestions-list").innerHTML="";
+  document.getElementById("highlight-info").style.display="none";
+  document.getElementById("upload-status").textContent="支持多张图片（文章一张 + 题目一张）";
+  document.getElementById("upload-status").className="status";
+  renderThumbs(); renderQuestions(); updateBottomBar();
+  clearChat(); setChatStatus("等待作答"); renderProgress();
+  document.getElementById("q-label").textContent="📝 阅读题目";
+}
+
+// ═══════════════════════════════════════════════════
+// CHAT HELPERS
+// ═══════════════════════════════════════════════════
+function clearChat() {
+  const msgs = document.getElementById("chat-messages");
+  msgs.innerHTML=`<div id="chat-empty" style="display:${state.phase==='input'?'flex':'none'};flex-direction:column;align-items:center;justify-content:center;height:100%;gap:9px;color:var(--muted);text-align:center">
+    <div style="font-size:36px">📖</div>
+    <p style="font-size:12px;line-height:1.9">完成左侧题目后<br>AI将针对每道错题<br>启动个性化溯源辅导</p>
+    <small style="font-size:10.5px;color:#aaa;line-height:1.7">完成后可生成<br>学情分析PDF报告<br>发送给老师查看</small>
+  </div>`;
+}
+
+const bubbleColors = {
+  guide:{cls:"bubble-guide",label:"引导"},
+  encourage:{cls:"bubble-encourage",label:"鼓励"},
+  word:{cls:"bubble-word",label:"词汇"},
+  grammar:{cls:"bubble-grammar",label:"语法"},
+  quiz:{cls:"bubble-quiz",label:"选择"},
+};
+
+function addMsg(role, type, content) {
+  const msgs = document.getElementById("chat-messages");
+  const empty = document.getElementById("chat-empty");
+  if (empty) empty.style.display="none";
+  const div = document.createElement("div");
+  div.className="msg-row"+(role==="user"?" user":"");
+  if (role==="ai") {
+    const bc = bubbleColors[type]||bubbleColors.guide;
+    div.innerHTML=`
+      <div class="msg-avatar ai">🤖</div>
+      <div class="msg-bubble ai-bubble ${bc.cls}">
+        <div class="msg-type-label">${bc.label}</div>
+        ${esc(content).replace(/\n/g,"<br>")}
+      </div>`;
+  } else {
+    div.innerHTML=`
+      <div class="msg-bubble user-bubble">${esc(content).replace(/\n/g,"<br>")}</div>
+      <div class="msg-avatar user">👤</div>`;
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addQuizMsg(question, options, quizType) {
+  const msgs = document.getElementById("chat-messages");
+  const empty = document.getElementById("chat-empty");
+  if (empty) empty.style.display="none";
+  const btns = options.map(opt=>`<button class="quiz-opt-btn" onclick="handleQuizClick('${opt.key}','${quizType}')">${esc(opt.key)}. ${esc(opt.label)}</button>`).join("");
+  const div = document.createElement("div");
+  div.className="msg-row";
+  div.innerHTML=`
+    <div class="msg-avatar ai">🤖</div>
+    <div class="msg-bubble ai-bubble bubble-quiz">
+      <div class="msg-type-label">选择</div>
+      <div style="font-weight:500;margin-bottom:7px">${esc(question)}</div>
+      <div class="quiz-options">${btns}</div>
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function handleQuizClick(key, quizType) {
+  if (quizType==="quick_quiz") handleChoice(key);
+  else if (quizType==="branch_B") handleBranchB(key);
+}
+
+function addTyping() {
+  const msgs = document.getElementById("chat-messages");
+  const div = document.createElement("div");
+  div.className="msg-row"; div.id="typing-indicator";
+  div.innerHTML=`<div class="msg-avatar ai">🤖</div><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  msgs.appendChild(div); msgs.scrollTop=msgs.scrollHeight;
+}
+
+function setChatStatus(txt) { document.getElementById("chat-status").textContent=txt; }
+
+function renderProgress() {
+  const el = document.getElementById("progress-dots");
+  if (state.phase!=="tutoring") { el.innerHTML=""; return; }
+  el.innerHTML = state.wrongQs.map((q,i)=>{
+    const cls = i<state.wrongIdx?"done":i===state.wrongIdx?"active":"todo";
+    return `<div class="pdot ${cls}">${q.id}</div>`;
+  }).join("");
+}
+
+function renderSuggestions() {
+  const panel = document.getElementById("suggestions-panel");
+  const list = document.getElementById("suggestions-list");
+  if (!state.suggestions.length) return;
+  panel.style.display="";
+  const map = {A:{bg:"var(--blueL)",color:"var(--blue)",icon:"🔍"},B:{bg:"var(--purpleL)",color:"var(--purple)",icon:"📖"},C:{bg:"var(--amberL)",color:"var(--amber)",icon:"🧠"},D:{bg:"var(--tealL)",color:"var(--teal)",icon:"🔄"}};
+  list.innerHTML = state.suggestions.map(s=>{
+    const m=map[s.diagnosis]||map.A;
+    return `<div class="sugg-item" style="background:${m.bg};color:${m.color}"><span>${m.icon}</span><div><strong>Q${s.questionId}</strong> ${esc(s.suggestion)}</div></div>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════════════
+// MISTAKE BOOK MODAL
+// ═══════════════════════════════════════════════════
+function openBook() {
+  const content = document.getElementById("book-content");
+  const {words,sentences}=state.mistakeBook;
+  let html="";
+  if (!words.length&&!sentences.length) {
+    html=`<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">完成错题辅导后，生词和长难句会自动归档到这里</p>`;
+  }
+  if (words.length) {
+    html+=`<div class="book-section words"><h3>📝 生词积累库</h3><div class="word-chips">${words.map(w=>`<div class="word-chip">${esc(w.word)} <span style="font-size:10px;opacity:0.6">·Q${w.questionId}</span></div>`).join("")}</div></div>`;
+  }
+  if (sentences.length) {
+    html+=`<div class="book-section sents"><h3>📐 长难句语法库</h3>${sentences.map(s=>`<div class="sent-item">"${esc(s.sentence)}" <span style="font-size:10px;color:#999;font-style:normal">Q${s.questionId}</span></div>`).join("")}</div>`;
+  }
+  if (words.length&&state.phase==="done") {
+    html+=`<button class="btn btn-accent" style="width:100%;margin-top:8px" onclick="closeBook();generateReviewQuiz()">🧪 生成专项复习检测 (5题)</button>`;
+  }
+  content.innerHTML=html;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+function closeBook() { document.getElementById("modal-overlay").classList.remove("open"); }
+
+// ═══════════════════════════════════════════════════
+// PDF REPORT
+// ═══════════════════════════════════════════════════
+async function generateReport() {
+  if (!window.jspdf) { alert("PDF库尚未加载，请稍后再试"); return; }
+  const btn = document.getElementById("btn-report");
+  if (btn) btn.textContent="⏳ 生成中...";
+
+  const article = document.getElementById("article-txt").value;
+  const correctQ = state.questions.filter(q=>state.userAnswers[q.id]===q.correct).length;
+  const wrongQ = state.questions.length - correctQ;
+  const accuracy = Math.round((correctQ/state.questions.length)*100);
+  const diagCounts={};
+  Object.values(state.allDiagnoses).forEach(d=>{diagCounts[d]=(diagCounts[d]||0)+1;});
+  const diagLabels={A:"Keyword Location",B:"Sentence Comprehension",C:"Main Idea / Logic",D:"Paraphrase Recognition"};
+  const errorTypes = Object.entries(diagCounts).map(([key,count])=>({key,label:diagLabels[key]||key,count}));
+
+  let actionPlan=[];
+  try {
+    const r = await callGemini(`学生信息：正确率${accuracy}%，错因分布：${JSON.stringify(diagCounts)}，查过的生词：${state.mistakeBook.words.map(w=>w.word).join(",")||"无"}，复习测试成绩：${state.reviewQuiz.length>0?state.reviewQuiz.filter(q=>state.reviewAnswers[q.id]===q.correct).length+"/"+state.reviewQuiz.length:"未做"}。\n\n请生成3-5条具体可执行的后续学习建议，每条英文，面向小托福学生和家长。以JSON数组格式返回：["建议1","建议2",...]。只返回JSON数组，不含markdown代码块。`);
+    actionPlan = JSON.parse(r.replace(/```json|```/g,"").trim());
+  } catch { actionPlan=["Review all vocabulary words encountered in this session.","Practice keyword scanning with 2 passages daily.","Focus on identifying paraphrased answer choices in TOEFL Junior practice tests."]; }
+
+  buildPDF({totalQ:state.questions.length,correctQ,wrongQ,accuracy,
+    questions:state.questions.map(q=>({id:q.id,question:q.question,userAnswer:state.userAnswers[q.id]||"-",correct:q.correct,isCorrect:state.userAnswers[q.id]===q.correct,diagnosis:state.allDiagnoses[q.id]||"-"})),
+    errorTypes, mistakeBook:state.mistakeBook,
+    reviewQuiz:state.reviewQuiz.map(q=>({...q,userAnswer:state.reviewAnswers[q.id]||"-"})),
+    actionPlan});
+
+  if (btn) btn.textContent="📄 下载学情报告";
+}
+
+function buildPDF(d) {
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const PW=210,PH=297,ML=18,MR=18,TW=PW-ML-MR;
+  let y=0;
+  const addPage=()=>{doc.addPage();y=20;};
+  const chk=(n)=>{if(y+n>PH-20)addPage();};
+
+  const secTitle=(title,rgb=[30,77,15])=>{
+    chk(14);
+    doc.setFillColor(...rgb);doc.roundedRect(ML,y,TW,9,2,2,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
+    doc.text(title,ML+3,y+6.2);y+=13;doc.setTextColor(20,46,6);
+  };
+  const bul=(text,rgb=[60,60,60],ind=4)=>{
+    chk(7);doc.setFillColor(...rgb);doc.circle(ML+ind+1.2,y-1.2,1.2,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(...rgb);
+    const lines=doc.splitTextToSize(text,TW-ind-8);
+    doc.text(lines,ML+ind+4,y);y+=lines.length*5.5+1.5;
+  };
+  const infoBox=(text,bg=[234,245,213],bd=[190,216,152])=>{
+    chk(16);const lines=doc.splitTextToSize(text,TW-8);const bh=lines.length*5.5+8;
+    doc.setFillColor(...bg);doc.setDrawColor(...bd);doc.roundedRect(ML,y,TW,bh,2,2,"FD");
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(20,46,6);
+    doc.text(lines,ML+4,y+6);y+=bh+4;
+  };
+
+  // HEADER
+  doc.setFillColor(30,77,15);doc.rect(0,0,PW,36,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont("helvetica","bold");
+  doc.text("English Reading Mistake Analysis Report",ML,16);
+  doc.setFontSize(9);doc.setFont("helvetica","normal");
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`,ML,26);
+  doc.text(`Total: ${d.totalQ}   Correct: ${d.correctQ}   Wrong: ${d.wrongQ}   Accuracy: ${d.accuracy}%`,ML,33);
+  y=46;
+
+  // 1. SCORE
+  secTitle("1.  Score Overview & Accuracy Analysis");
+  const sc=d.accuracy>=80?[74,122,30]:d.accuracy>=60?[107,62,0]:[122,20,20];
+  doc.setFillColor(...sc);doc.roundedRect(ML,y,45,22,3,3,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(22);doc.setFont("helvetica","bold");
+  doc.text(`${d.accuracy}%`,ML+7,y+15);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text("Accuracy Rate",ML+7,y+20);
+  doc.setTextColor(40,80,20);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text(`Correct: ${d.correctQ} / ${d.totalQ}`,ML+52,y+8);
+  doc.text(`Wrong:   ${d.wrongQ} / ${d.totalQ}`,ML+52,y+17);
+  y+=28;
+  // table
+  chk(12);doc.setFillColor(238,229,250);doc.rect(ML,y,TW,8,"F");
+  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(62,20,120);
+  ["Q#","Your Ans","Correct","Result","Error Type"].forEach((h,i)=>{
+    const xs=[ML+2,ML+14,ML+40,ML+60,ML+82];
+    doc.text(h,xs[i],y+5.5);
+  });
+  y+=9;
+  d.questions.forEach((q,i)=>{
+    chk(8);
+    doc.setFillColor(i%2===0?250:243,i%2===0?254:250,i%2===0?245:240);
+    doc.rect(ML,y,TW,7.5,"F");
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+    doc.text(`Q${q.id}`,ML+2,y+5);
+    doc.text(q.userAnswer||"-",ML+14,y+5);
+    doc.text(q.correct,ML+40,y+5);
+    if(q.isCorrect){doc.setTextColor(30,100,30);doc.text("Correct",ML+60,y+5);}
+    else{doc.setTextColor(150,20,20);doc.text("Wrong",ML+60,y+5);}
+    doc.setTextColor(60,60,60);
+    const el={A:"Keyword",B:"Sentence",C:"Main idea",D:"Paraphrase","-":"-"};
+    doc.text(el[q.diagnosis]||"-",ML+82,y+5);y+=8;
+  });
+  y+=5;
+
+  // 2. ERROR TYPES
+  secTitle("2.  Error Type Distribution",[26,62,122]);
+  if(!d.errorTypes.length){infoBox("No errors recorded — excellent performance!",[234,245,213]);}
+  else{
+    d.errorTypes.forEach(et=>{
+      chk(10);const pct=Math.round((et.count/d.wrongQ)*100);
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(26,62,122);
+      doc.text(`${et.label}  (${et.count} question${et.count>1?"s":""}, ${pct}%)`,ML+2,y);y+=4;
+      doc.setFillColor(200,215,240);doc.roundedRect(ML+2,y,TW-4,5,2,2,"F");
+      doc.setFillColor(26,62,122);doc.roundedRect(ML+2,y,Math.max(4,(TW-4)*pct/100),5,2,2,"F");
+      y+=9;
+    });
+  }
+
+  // 3. VOCABULARY
+  secTitle("3.  Vocabulary Weakness Analysis",[62,20,120]);
+  if(!d.mistakeBook.words.length){infoBox("No vocabulary issues recorded.");}
+  else{
+    infoBox(`${d.mistakeBook.words.length} word(s) looked up during tutoring:`);
+    d.mistakeBook.words.forEach(w=>{
+      chk(8);doc.setFillColor(238,229,250);doc.roundedRect(ML+2,y-4,30,7,2,2,"F");
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(62,20,120);
+      doc.text(w.word,ML+4,y);
+      doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.setFontSize(8.5);
+      doc.text(`Q${w.questionId} · ${w.timestamp}`,ML+36,y);y+=7;
+    });
+    y+=2;
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(62,20,120);
+    doc.text("Recommendation:",ML+2,y);y+=6;
+    bul("Review and memorize these words with flashcards",[62,20,120]);
+    bul("Practice each word in new sentences for contextual understanding",[62,20,120]);
+  }
+
+  // 4. GRAMMAR
+  secTitle("4.  Grammar & Long-Sentence Analysis",[107,62,0]);
+  if(!d.mistakeBook.sentences.length){infoBox("No long-sentence difficulties recorded.");}
+  else{
+    d.mistakeBook.sentences.forEach(s=>{
+      chk(20);doc.setFillColor(255,243,220);doc.setDrawColor(240,190,96);
+      const lines=doc.splitTextToSize(`"${s.sentence}"`,TW-8);
+      const bh=lines.length*5.5+8;
+      doc.roundedRect(ML,y,TW,bh,2,2,"FD");
+      doc.setFontSize(8.5);doc.setFont("helvetica","italic");doc.setTextColor(107,62,0);
+      doc.text(lines,ML+4,y+6);y+=bh+3;
+      doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(100,70,20);
+      doc.text(`From Q${s.questionId} — practice S-V-O breakdown on similar sentences.`,ML+4,y);y+=8;
+    });
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(107,62,0);
+    doc.text("Recommendation:",ML+2,y);y+=6;
+    bul("Daily: underline the main clause in 3 long sentences",[107,62,0]);
+    bul("Look for signal words: 'although','despite','however','which'",[107,62,0]);
+  }
+
+  // 5. REVIEW QUIZ
+  if(d.reviewQuiz.length>0){
+    secTitle("5.  Post-Session Review Quiz Results",[74,45,140]);
+    const rScore=d.reviewQuiz.filter(q=>q.userAnswer===q.correct).length;
+    const rPct=Math.round((rScore/d.reviewQuiz.length)*100);
+    chk(12);doc.setFontSize(10);doc.setFont("helvetica","bold");
+    const rc=rPct>=80?[30,100,30]:rPct>=60?[107,62,0]:[122,20,20];
+    doc.setTextColor(...rc);doc.text(`Score: ${rScore} / ${d.reviewQuiz.length}  (${rPct}%)`,ML+2,y);y+=8;
+    const ml=rPct>=80?"Good mastery demonstrated":rPct>=60?"Partial mastery — needs more practice":"Weak mastery — immediate review recommended";
+    infoBox(ml,rPct>=80?[234,245,213]:rPct>=60?[255,243,220]:[252,234,234]);
+    if(rPct<80){bul("Review vocabulary and grammar from mistake book again",[74,45,140]);bul("Redo the quiz in 3 days (spaced repetition)",[74,45,140]);}
+  }
+
+  // 6. ACTION PLAN
+  const sn=d.reviewQuiz.length>0?"6":"5";
+  secTitle(`${sn}.  Personalized Learning Action Plan`,[30,77,15]);
+  d.actionPlan.forEach((item,i)=>{
+    chk(10);doc.setFillColor(234,245,213);doc.roundedRect(ML,y-3,8,8,1,1,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(30,77,15);
+    doc.text(`${i+1}`,ML+2.5,y+3);
+    doc.setFont("helvetica","normal");doc.setTextColor(20,46,6);
+    const lines=doc.splitTextToSize(item,TW-14);doc.text(lines,ML+12,y);y+=lines.length*5.5+4;
+  });
+
+  // FOOTER
+  const pc=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);doc.setFillColor(245,250,240);doc.rect(0,PH-12,PW,12,"F");
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(120,140,100);
+    doc.text("English Reading Mistake Analysis — AI-Powered Tutoring Platform",ML,PH-5);
+    doc.text(`Page ${i} of ${pc}`,PW-ML-16,PH-5);
+  }
+  doc.save(`reading-report-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════
+// UTIL
+// ═══════════════════════════════════════════════════
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+renderQuestions();
+updateBottomBar();
+</script>
+</body>
+</html>
